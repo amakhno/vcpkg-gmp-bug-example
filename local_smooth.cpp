@@ -1,105 +1,52 @@
-#include "common.h"
+#include <gmp.h>
+#include <stdio.h>
+#include <assert.h>
 
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/Polygon_mesh_processing/smooth_mesh.h>
+int main(int argc, char** argv) {
+	char inputStr[1024];
+	/*
+     mpz_t is the type defined for GMP integers.
+     It is a pointer to the internals of the GMP integer data structure
+   */
+	mpz_t n;
+	int flag;
 
-namespace PMP = CGAL::Polygon_mesh_processing;
+	printf("Enter your number: ");
+	scanf("%1023s", inputStr); /* NOTE: never every write a call scanf ("%s", inputStr);
+                                  You are leaving a security hole in your code. */
 
-void local_smooth(const double* vertices,
-	int vertCount,
-	const int* faces,
-	int faceCount,
-	const int* faceArea,
-	int faceAreaCount,
-	double* result,
-	int* resultFaces,
-	int iterations,
-	int use_safety_constraints,
-	int use_Delaunay_flips,
-	int do_project) {
-	typedef CGAL::Epick::Point_3 Point;
-	typedef CGAL::SM_Vertex_index Vid;
+	/* 1. Initialize the number */
+	mpz_init(n);
+	mpz_set_ui(n, 0);
 
-	const auto V = convert_matrix(vertices, vertCount, 3);
-	const auto F = convert_matrix(faces, faceCount, 3);
+	/* 2. Parse the input string as a base 10 number */
+	flag = mpz_set_str(n, inputStr, 10);
+	assert(flag == 0); /* If flag is not 0 then the operation failed */
 
-	typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-	typedef CGAL::Surface_mesh<K::Point_3> Mesh;
-	typedef boost::graph_traits<Mesh>::face_descriptor     face_descriptor;
+	/* Print n */
+	printf("n = ");
+	mpz_out_str(stdout, 10, n);
+	printf("\n");
 
-	auto mesh = Mesh();
+	/* 3. Add one to the number */
 
-	std::cout << "VA rows count: " << V.rows() << std::endl;
-	std::cout << "VA cols count: " << F.cols() << std::endl;
+	mpz_add_ui(n, n, 1); /* n = n + 1 */
 
-	std::map<int, Vid> map = std::map<int, Vid>();
+	/* 4. Print the result */
 
-	for (size_t i = 0; i < V.rows(); i++)
-	{
-		auto point = Point(V(i, 0), V(i, 1), V(i, 2));
-		map[i] = mesh.add_vertex(point);
-	}
+	printf(" n +1 = ");
+	mpz_out_str(stdout, 10, n);
+	printf("\n");
 
-	std::vector<face_descriptor> patch;
-	auto facesAreaSet = std::unordered_set<int>();
-	for (size_t i = 0; i < faceAreaCount; i++)
-	{
-		auto faceId = faceArea[i];
-		facesAreaSet.insert(faceId);
-	}
-	for (size_t i = 0; i < F.rows(); i++)
-	{
-		face_descriptor face = mesh.add_face(map[F(i, 0)], map[F(i, 1)], map[F(i, 2)]);
-		std::unordered_set<int>::const_iterator got = facesAreaSet.find(i);
-		if (got != facesAreaSet.end())
-		{
-			patch.push_back(face);
-		}
-	}
+	/* 5. Square n+1 */
 
-	//auto blah = FaceRange
-	if (faceAreaCount == 0)
-	{
-		PMP::smooth_mesh(mesh, PMP::parameters::number_of_iterations(iterations)
-			.use_safety_constraints((bool)use_safety_constraints).use_Delaunay_flips((bool)use_Delaunay_flips).do_project((bool)do_project)); // authorize all moves
-	}
-	else
-	{
-		PMP::smooth_mesh(patch, mesh, PMP::parameters::number_of_iterations(iterations)
-			.use_safety_constraints((bool)use_safety_constraints).use_Delaunay_flips((bool)use_Delaunay_flips).do_project((bool)do_project)); // authorize all moves
-	}
-	
+	mpz_mul(n, n, n); /* n = n * n */
 
-	for (size_t i = 0; i < V.rows(); i++)
-	{
-		const auto &point = mesh.point(map[i]);
-		result[i * 3] = point.x();
-		result[i * 3 + 1] = point.y();
-		result[i * 3 + 2] = point.z();
-	}
-	
-	int faceCounter = 0;
-	int facesArraySize = faceCount * 3;
-	for (Mesh::Face_index face_index : mesh.faces()) {
-		CGAL::Vertex_around_face_circulator<Mesh> vcirc(mesh.halfedge(face_index), mesh), done(vcirc);
-		do
-		{
-			if (faceCounter >= facesArraySize)
-			{
-				throw "FaceCounter overflow";
-			}
-			uint32_t vid = *vcirc++;
-			resultFaces[faceCounter] = (int)vid;
-			faceCounter++;
-		} while (vcirc != done);
-	}
+	printf(" (n +1)^2 = ");
+	mpz_out_str(stdout, 10, n);
+	printf("\n");
 
-	for (size_t i = 0; i < V.rows(); i++)
-	{
-		const auto& point = mesh.point(map[i]);
-		result[i * 3] = point.x();
-		result[i * 3 + 1] = point.y();
-		result[i * 3 + 2] = point.z();
-	}
+	/* 6. Clean up the mpz_t handles or else we will leak memory */
+	mpz_clear(n);
+
 }
